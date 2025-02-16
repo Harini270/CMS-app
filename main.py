@@ -8,6 +8,7 @@ from datetime import datetime  # For timestamps
 import matplotlib.pyplot as plt  # For analytics
 import os  # For file uploads
 import io
+import re  # For regex validation
 
 # Define backend API URL
 BASE_URL = "http://127.0.0.1:5000"  # Change this if needed
@@ -35,6 +36,25 @@ def hash_password(password):
 def generate_complaint_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
+# --- Email Validation ---
+def validate_email(email):
+    # Regex pattern for validating email
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+# --- Password Strength Validation ---
+def validate_password(password):
+    # Password must contain at least 8 characters, one uppercase, one lowercase, and one number
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter."
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter."
+    if not re.search(r'[0-9]', password):
+        return False, "Password must contain at least one number."
+    return True, "Password is valid."
+
 # --- User Registration ---
 def user_registration():
     st.subheader("👤 User Registration")
@@ -47,24 +67,30 @@ def user_registration():
     if st.button("Register"):
         if not name or not email or not password or not confirm_password:
             st.error("⚠️ All fields are required!")
+        elif not validate_email(email):
+            st.error("⚠️ Invalid email format! Please use a valid email address (e.g., example@gmail.com).")
         elif password != confirm_password:
             st.error("⚠️ Passwords do not match!")
         else:
-            # Check if user already exists
-            if any(user["email"] == email for user in st.session_state["users"]):
-                st.error("❌ User with this email already exists!")
+            is_valid, password_message = validate_password(password)
+            if not is_valid:
+                st.error(f"⚠️ {password_message}")
             else:
-                # Add user to the database
-                new_user = {
-                    "user_id": f"USER_{len(st.session_state['users']) + 1}",
-                    "name": name,
-                    "email": email,
-                    "password": hash_password(password),
-                    "role": role.lower(),
-                    "admin_type": None if role.lower() == "student" else "Hostel"  # Default admin type
-                }
-                st.session_state["users"].append(new_user)
-                st.success("✅ Registration successful! Please login.")
+                # Check if user already exists
+                if any(user["email"] == email for user in st.session_state["users"]):
+                    st.error("❌ User with this email already exists!")
+                else:
+                    # Add user to the database
+                    new_user = {
+                        "user_id": f"USER_{len(st.session_state['users']) + 1}",
+                        "name": name,
+                        "email": email,
+                        "password": hash_password(password),
+                        "role": role.lower(),
+                        "admin_type": None if role.lower() == "student" else "Hostel"  # Default admin type
+                    }
+                    st.session_state["users"].append(new_user)
+                    st.success("✅ Registration successful! Please login.")
 
 # --- Student Login ---
 def student_login():
